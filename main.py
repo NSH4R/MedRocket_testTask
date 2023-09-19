@@ -14,45 +14,40 @@ def create_directory():
         os.mkdir('tasks')
 
 
-def request_dict(api: str):
+def get_request(api: str):
     """ Запрос json по api и преобразование его в словарик """
-    try:
-        response = requests.get(api)
-        return response.json()
-
-    except requests.exceptions.RequestException as e:
-        print(f'Ошибка при получение данных: {e}')  # В случае ошибки выведет ее код
-        exit()
+    response = requests.get(api)
+    return response.json() if response.status_code == 200 else response.raise_for_status()
 
 
-def users_to_dict():
+def sort_users():
     """ Сортировка в удобный формат словаря пользователей, добавление массивов для сортировки задач """
-    users_dict = request_dict(USERS_API)
-    users_data_dict = {us['id']: {
-        'id': us['id'],
-        'name': us['name'],
-        'username': us['username'],
-        'email': us['email'],
+    users_dict = get_request(USERS_API)
+    users_sort_dict = {user['id']: {
+        'id': user['id'],
+        'name': user['name'],
+        'username': user['username'],
+        'email': user['email'],
         'company': {
-            'name': us['company']['name']
+            'name': user['company']['name']
         },
         'true': [],
         'false': []
-    } for us in users_dict}
-    return users_data_dict
+    } for user in users_dict}
+    return users_sort_dict
 
 
 def sorting_title():
     """ Сортировка списка по выполненным и невыполненным задачам, сокращение строк заголовков """
-    users_dict, todos_dict = request_dict(USERS_API), request_dict(TODOS_API)
-    users_data_dict = users_to_dict()
+    todos_dict = get_request(TODOS_API)
+    users_data_dict = sort_users()
     for todo in todos_dict:
         user_id = todo.get('userId')
         title = todo.get('title')
         completed = todo.get('completed')
         if None in (title, user_id):
             continue
-        title = f'{title[:46]}...' if len(title) >= 46 else title  # Сокращаем строки более 46
+        title = f'{title[:46]}…' if len(title) >= 46 else title  # Сокращаем строки более 46
         users_data_dict[user_id]['true'].append(title) if completed else (   # Сортировка строк
             users_data_dict[user_id]['false'].append(title))
     return users_data_dict
@@ -82,7 +77,9 @@ def create_and_add_reports():
 
         except Exception as e:
             print(f'Ошибка при создание {member["username"]}.txt: {e}')
+
+
+if __name__ == '__main__':
+    create_and_add_reports()
     print('Отчет успешно сформирован !')
 
-
-create_and_add_reports()
